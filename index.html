@@ -90,6 +90,25 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--gold);outl
 .toc-item[aria-current="page"]{border-color:#0E6B78;box-shadow:inset 0 0 0 1px #0E6B78}
 .toc-num{width:36px;height:36px;flex-shrink:0;border-radius:9px;color:#F5EDE0;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:18px}
 
+/* reading mode: header and settings step aside, the book takes the screen, a small bar floats below */
+.book,.sheet{transition:width .35s ease,height .35s ease,transform .35s ease}
+.focus-only{display:none}
+body.focus .top{display:none}
+body.focus .progress{position:fixed;top:env(safe-area-inset-top, 0px);left:0;right:0;z-index:20;border-radius:0}
+body.focus .stage{padding-block:12px 0}
+body.focus .controls{position:fixed;z-index:30;left:50%;translate:-50% 0;bottom:max(12px, env(safe-area-inset-bottom, 0px));
+  padding:6px;gap:6px;flex-wrap:nowrap;border-radius:999px;background:rgba(11,59,68,.94);border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.45);max-width:calc(100vw - 24px)}
+body.focus .controls .tog,body.focus .controls .sep{display:none}
+body.focus .controls .btn:not(.play) .lbl{display:none}
+body.focus .controls .btn:not(.play){min-width:44px;padding:0 11px;justify-content:center}
+body.focus .btn.play{min-height:44px;padding:0 18px;font-size:16px}
+body.focus .cap{position:fixed;z-index:25;left:50%;translate:-50% 0;bottom:calc(max(12px, env(safe-area-inset-bottom, 0px)) + 66px);
+  width:max-content;max-width:min(720px, calc(100vw - 32px));margin:0;min-height:0;padding:10px 18px;border-radius:14px;
+  background:rgba(11,59,68,.94);border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+body.focus .cap.hint{display:none}
+@media (max-width:700px){body.focus .nav{display:none}}
+@media (prefers-reduced-motion:reduce){.book,.sheet{transition:none}}
+
 /* interactive bits inside the pages */
 .cty{cursor:pointer;transition:filter .2s}
 .cty:hover,.cty:focus-visible{filter:brightness(1.1) saturate(1.25);outline:none}
@@ -949,22 +968,31 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--gold);outl
 <p class="cap hint" id="cap" aria-live="polite">اضغطي «استمعي» لتسمعي الصفحة، وقلّبي الصفحات بالأسهم أو بالسحب.</p>
 
 <div class="controls">
-  <button class="btn" id="prev2" type="button">
+  <button class="btn" id="prev2" type="button" aria-label="الصفحة السابقة">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
-    السابقة
+    <span class="lbl">السابقة</span>
   </button>
   <button class="btn play" id="playBtn" type="button">
     <svg id="playIco" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>
     <span id="playTxt">استمعي</span>
   </button>
-  <button class="btn" id="next2" type="button">
-    التالية
+  <button class="btn" id="next2" type="button" aria-label="الصفحة التالية">
+    <span class="lbl">التالية</span>
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
   </button>
   <span class="sep" aria-hidden="true"></span>
   <button class="btn tog" id="autoBtn" type="button" aria-pressed="false"><span class="dot" aria-hidden="true"></span>القراءة التلقائية</button>
   <button class="btn tog" id="fxBtn" type="button" aria-pressed="true"><span class="dot" aria-hidden="true"></span>صوت التقليب</button>
   <button class="btn tog" id="waveBtn" type="button" aria-pressed="false"><span class="dot" aria-hidden="true"></span>أمواج البحر</button>
+  <span class="sep" aria-hidden="true"></span>
+  <button class="btn" id="focusBtn" type="button" aria-label="تكبير الكتاب">
+    <svg id="focusIco" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+    <span class="lbl" id="focusTxt">تكبير الكتاب</span>
+  </button>
+  <button class="btn" id="fsBtn" type="button" aria-label="ملء الشاشة" hidden>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 9h-2v2M16 9h2v2M8 15h-2v-2M16 15h2v-2"/></svg>
+    <span class="lbl" id="fsTxt">ملء الشاشة</span>
+  </button>
 </div>
 
 <div class="toc" id="toc" role="dialog" aria-modal="true" aria-labelledby="tocTitle" hidden>
@@ -1012,12 +1040,47 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--gold);outl
     var r = stage.getBoundingClientRect();
     var wide = r.width > 700;
     var w = r.width - (wide ? 140 : 8);
-    var h = r.height - (wide ? 24 : 64);
+    var h = focusOn ? r.height - 92 : r.height - (wide ? 24 : 64);
     var s = Math.max(0.2, Math.min(w / 794, h / 1123));
     book.style.setProperty('--s', s.toFixed(4));
     pages.forEach(function(p){ p.style.setProperty('--s', s.toFixed(4)); });
   }
   window.addEventListener('resize', layout);
+  if(window.ResizeObserver){ new ResizeObserver(function(){ layout(); }).observe(stage); }
+
+  /* ---------- reading mode and full screen ---------- */
+  var focusOn = false, autoFocusDone = false;
+  var ICON_EXPAND = '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>';
+  var ICON_SETTINGS = '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>';
+  function setFocus(on){
+    focusOn = on; document.body.classList.toggle('focus', on);
+    var b = document.getElementById('focusBtn');
+    document.getElementById('focusTxt').textContent = on ? 'الإعدادات' : 'تكبير الكتاب';
+    b.setAttribute('aria-label', on ? 'إظهار الإعدادات' : 'تكبير الكتاب');
+    document.getElementById('focusIco').innerHTML = on ? ICON_SETTINGS : ICON_EXPAND;
+    requestAnimationFrame(layout);
+  }
+  function autoFocus(){ if(!autoFocusDone){ autoFocusDone = true; if(!focusOn){ setFocus(true); } } }
+  document.getElementById('focusBtn').addEventListener('click', function(){ autoFocusDone = true; setFocus(!focusOn); });
+
+  var fsBtn = document.getElementById('fsBtn'), root = document.documentElement;
+  var fsReq = root.requestFullscreen || root.webkitRequestFullscreen;
+  var fsOk = !!fsReq && (document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  function fsEl(){ return document.fullscreenElement || document.webkitFullscreenElement; }
+  if(fsOk){ fsBtn.hidden = false; }
+  fsBtn.addEventListener('click', function(){
+    if(fsEl()){ (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+    autoFocusDone = true; setFocus(true);
+    try{ var p = fsReq.call(root); if(p && p.catch){ p.catch(function(){}); } }catch(e){}
+  });
+  function onFs(){
+    var on = !!fsEl();
+    document.getElementById('fsTxt').textContent = on ? 'خروج من ملء الشاشة' : 'ملء الشاشة';
+    fsBtn.setAttribute('aria-label', on ? 'خروج من ملء الشاشة' : 'ملء الشاشة');
+    requestAnimationFrame(layout);
+  }
+  document.addEventListener('fullscreenchange', onFs);
+  document.addEventListener('webkitfullscreenchange', onFs);
 
   /* ---------- sound effects (Web Audio, no files) ---------- */
   var ac = null, noise = null, waves = null;
@@ -1154,8 +1217,8 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--gold);outl
       if(auto){ narrate(cur); }
     });
   }
-  function next(){ goTo(cur + 1); }
-  function prev(){ goTo(cur - 1); }
+  function next(){ if(cur < pages.length - 1){ autoFocus(); } goTo(cur + 1); }
+  function prev(){ if(cur > 0){ autoFocus(); } goTo(cur - 1); }
 
   /* ---------- controls ---------- */
   document.getElementById('nextBtn').addEventListener('click', next);
@@ -1165,7 +1228,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--gold);outl
   document.getElementById('playBtn').addEventListener('click', function(){
     ctx();
     if(document.getElementById('playTxt').textContent === 'إيقاف'){ stopSpeech(); setAuto(false); caption(PAGES[cur].hint, true); }
-    else { narrate(cur); }
+    else { autoFocus(); narrate(cur); }
   });
   function setAuto(on){ auto = on; document.getElementById('autoBtn').setAttribute('aria-pressed', on ? 'true' : 'false'); }
   document.getElementById('autoBtn').addEventListener('click', function(){
@@ -1182,6 +1245,7 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--gold);outl
 
   document.addEventListener('keydown', function(e){
     if(!document.getElementById('toc').hidden){ if(e.key === 'Escape'){ closeToc(); } return; }
+    if(e.key === 'Escape' && focusOn && !fsEl()){ setFocus(false); return; }
     if(e.key === 'ArrowLeft'){ e.preventDefault(); next(); }
     else if(e.key === 'ArrowRight'){ e.preventDefault(); prev(); }
   });
